@@ -27,7 +27,7 @@ from ..conditioners.text import LUTConditioner
 from . import loaders, MimiModel, LMModel, LMGen
 
 
-DEFAULT_DSM_TTS_REPO = 'kyutai/tts-1.6b-en_fr'
+DEFAULT_DSM_TTS_REPO = 'DavidBrowne17/natalie-kyutai-tts'
 DEFAULT_DSM_TTS_VOICE_REPO = 'kyutai/tts-voices'
 
 
