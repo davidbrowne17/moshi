@@ -1,5 +1,5 @@
 [package]
-name = "moshi-cli"
+name = "db-moshi-cli"
 version.workspace = true
 edition.workspace = true
 description.workspace = true
