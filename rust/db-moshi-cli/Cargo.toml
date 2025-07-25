@@ -22,7 +22,7 @@ env_logger = { workspace = true }
 futures = { workspace = true }
 futures-util = { workspace = true }
 log = { workspace = true }
-moshi = { workspace = true }
+moshi-db = { workspace = true }
 native-tls = { workspace = true }
 ogg = { workspace = true }
 opus = { workspace = true }
@@ -43,8 +43,8 @@ tui-logger = { workspace = true }
 
 [features]
 default = []
-cuda = ["moshi/cuda", "candle/cuda", "candle-nn/cuda", "candle-transformers/cuda"]
-metal = ["moshi/metal", "candle/metal", "candle-nn/metal", "candle-transformers/metal"]
+cuda = ["moshi-db/cuda", "candle/cuda", "candle-nn/cuda", "candle-transformers/cuda"]
+metal = ["moshi-db/metal", "candle/metal", "candle-nn/metal", "candle-transformers/metal"]
 
 [profile.release]
 debug = true

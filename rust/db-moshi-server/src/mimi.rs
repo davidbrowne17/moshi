@@ -67,7 +67,7 @@ impl Room {
 }
 
 pub struct Mimi {
-    audio_tokenizer: moshi::mimi::Mimi,
+    audio_tokenizer: moshi_db::mimi::Mimi,
     device: Device,
     #[allow(unused)]
     instance_name: String,
@@ -80,7 +80,7 @@ pub struct Mimi {
 
 impl Mimi {
     pub fn new(mimi: &crate::MimiConfig, config: &crate::Config, dev: &Device) -> Result<Self> {
-        let audio_tokenizer = moshi::mimi::load(&mimi.audio_tokenizer_file, Some(8), dev)?;
+        let audio_tokenizer = moshi_db::mimi::load(&mimi.audio_tokenizer_file, Some(8), dev)?;
         let mut rooms = std::collections::HashMap::new();
         for room in mimi.rooms.iter() {
             rooms.insert(room.to_string(), Room::new()?);

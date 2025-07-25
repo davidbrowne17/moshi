@@ -164,19 +164,19 @@ struct BatchedAsrInner {
     channels: Channels,
     asr_delay_in_tokens: usize,
     temperature: f64,
-    lm: moshi::lm::LmModel,
-    audio_tokenizer: moshi::mimi::Mimi,
+    lm: moshi_db::lm::LmModel,
+    audio_tokenizer: moshi_db::mimi::Mimi,
     text_tokenizer: std::sync::Arc<sentencepiece::SentencePieceProcessor>,
 }
 
 fn warmup(
-    state: &mut moshi::asr::State,
-    conditions: Option<&moshi::conditioner::Condition>,
+    state: &mut moshi_db::asr::State,
+    conditions: Option<&moshi_db::conditioner::Condition>,
 ) -> Result<()> {
     let dev = state.device().clone();
     let pcm = vec![0f32; FRAME_SIZE * state.batch_size()];
     let pcm = Tensor::from_vec(pcm, (state.batch_size(), 1, FRAME_SIZE), &dev)?;
-    let mask = moshi::StreamMask::new(vec![true; state.batch_size()], &dev)?;
+    let mask = moshi_db::StreamMask::new(vec![true; state.batch_size()], &dev)?;
     for _ in 0..2 {
         let _asr_msgs = state.step_pcm(pcm.clone(), conditions, &mask, |_, _, _| ())?;
     }
@@ -213,7 +213,7 @@ impl BatchedAsrInner {
                 }
             },
         };
-        let mut state = moshi::asr::State::new(
+        let mut state = moshi_db::asr::State::new(
             batch_size,
             self.asr_delay_in_tokens,
             self.temperature,
@@ -235,7 +235,7 @@ impl BatchedAsrInner {
                     self.pre_process(&mut state, step_idx, &mut markers);
                 let with_data = mask.iter().filter(|v| **v).count();
                 if with_data > 0 {
-                    let mask = moshi::StreamMask::new(mask, &dev)?;
+                    let mask = moshi_db::StreamMask::new(mask, &dev)?;
                     let pcm =
                         Tensor::new(batch_pcm.as_slice(), &dev)?.reshape((batch_size, 1, ()))?;
                     let start_time = std::time::Instant::now();
@@ -278,7 +278,7 @@ impl BatchedAsrInner {
 
     fn pre_process(
         &self,
-        state: &mut moshi::asr::State,
+        state: &mut moshi_db::asr::State,
         step_idx: usize,
         markers: &mut BinaryHeap<Marker>,
     ) -> (Vec<f32>, Vec<bool>, Vec<Option<ChannelId>>) {
@@ -375,16 +375,16 @@ impl BatchedAsrInner {
 
     fn post_process(
         &self,
-        asr_msgs: Vec<moshi::asr::AsrMsg>,
+        asr_msgs: Vec<moshi_db::asr::AsrMsg>,
         step_idx: usize,
         markers: &mut BinaryHeap<Marker>,
-        mask: &moshi::StreamMask,
+        mask: &moshi_db::StreamMask,
         ref_channel_ids: &[Option<ChannelId>],
     ) -> Result<()> {
         let mut channels = self.channels.lock().unwrap();
         for asr_msg in asr_msgs.into_iter() {
             match asr_msg {
-                moshi::asr::AsrMsg::Word { tokens, start_time, batch_idx } => {
+                moshi_db::asr::AsrMsg::Word { tokens, start_time, batch_idx } => {
                     let msg = OutMsg::Word {
                         text: self.text_tokenizer.decode_piece_ids(&tokens)?,
                         start_time,
@@ -395,7 +395,7 @@ impl BatchedAsrInner {
                         }
                     }
                 }
-                moshi::asr::AsrMsg::EndWord { stop_time, batch_idx } => {
+                moshi_db::asr::AsrMsg::EndWord { stop_time, batch_idx } => {
                     let msg = OutMsg::EndWord { stop_time };
                     if let Some(c) = channels[batch_idx].as_ref() {
                         if c.send(msg, ref_channel_ids[batch_idx]).is_err() {
@@ -403,7 +403,7 @@ impl BatchedAsrInner {
                         }
                     }
                 }
-                moshi::asr::AsrMsg::Step { step_idx, prs } => {
+                moshi_db::asr::AsrMsg::Step { step_idx, prs } => {
                     for (batch_idx, c) in channels.iter_mut().enumerate() {
                         if !mask.is_active(batch_idx) {
                             continue;
@@ -453,10 +453,10 @@ impl BatchedAsr {
         let dtype = dev.bf16_default_to_f32();
         let vb_lm =
             unsafe { VarBuilder::from_mmaped_safetensors(&[&asr.lm_model_file], dtype, dev)? };
-        let lm = moshi::lm::LmModel::batched(
+        let lm = moshi_db::lm::LmModel::batched(
             batch_size,
             &asr.model,
-            moshi::nn::MaybeQuantizedVarBuilder::Real(vb_lm),
+            moshi_db::nn::MaybeQuantizedVarBuilder::Real(vb_lm),
         )?;
         let audio_tokenizer = {
             let vb = unsafe {
@@ -466,10 +466,10 @@ impl BatchedAsr {
                     dev,
                 )?
             };
-            let mut cfg = moshi::mimi::Config::v0_1(Some(asr.model.audio_codebooks));
+            let mut cfg = moshi_db::mimi::Config::v0_1(Some(asr.model.audio_codebooks));
             // The mimi transformer runs at 25Hz.
             cfg.transformer.max_seq_len = asr.model.transformer.max_seq_len * 2;
-            moshi::mimi::Mimi::batched(batch_size, cfg, vb)?
+            moshi_db::mimi::Mimi::batched(batch_size, cfg, vb)?
         };
         let text_tokenizer = sentencepiece::SentencePieceProcessor::open(&asr.text_tokenizer_file)
             .with_context(|| asr.text_tokenizer_file.clone())?;

@@ -36,12 +36,12 @@ pub enum OutMsg {
 pub struct Asr {
     asr_delay_in_tokens: usize,
     temperature: f64,
-    lm: moshi::lm::LmModel,
-    audio_tokenizer: moshi::mimi::Mimi,
+    lm: moshi_db::lm::LmModel,
+    audio_tokenizer: moshi_db::mimi::Mimi,
     text_tokenizer: std::sync::Arc<sentencepiece::SentencePieceProcessor>,
     instance_name: String,
     log_dir: std::path::PathBuf,
-    conditions: Option<moshi::conditioner::Condition>,
+    conditions: Option<moshi_db::conditioner::Condition>,
 }
 
 impl Asr {
@@ -50,7 +50,7 @@ impl Asr {
         let vb_lm =
             unsafe { VarBuilder::from_mmaped_safetensors(&[&asr.lm_model_file], dtype, dev)? };
         let lm =
-            moshi::lm::LmModel::new(&asr.model, moshi::nn::MaybeQuantizedVarBuilder::Real(vb_lm))?;
+            moshi_db::lm::LmModel::new(&asr.model, moshi_db::nn::MaybeQuantizedVarBuilder::Real(vb_lm))?;
         let conditions = match lm.condition_provider() {
             None => None,
             Some(cp) => {
@@ -69,10 +69,10 @@ impl Asr {
                     dev,
                 )?
             };
-            let mut cfg = moshi::mimi::Config::v0_1(Some(asr.model.audio_codebooks));
+            let mut cfg = moshi_db::mimi::Config::v0_1(Some(asr.model.audio_codebooks));
             // The mimi transformer runs at 25Hz.
             cfg.transformer.max_seq_len = asr.model.transformer.max_seq_len * 2;
-            moshi::mimi::Mimi::new(cfg, vb)?
+            moshi_db::mimi::Mimi::new(cfg, vb)?
         };
         let text_tokenizer = sentencepiece::SentencePieceProcessor::open(&asr.text_tokenizer_file)
             .with_context(|| asr.text_tokenizer_file.clone())?;
@@ -91,7 +91,7 @@ impl Asr {
     pub fn warmup(&self) -> Result<()> {
         let lm = self.lm.clone();
         let audio_tokenizer = self.audio_tokenizer.clone();
-        let mut state = moshi::asr::State::new(
+        let mut state = moshi_db::asr::State::new(
             1,
             self.asr_delay_in_tokens,
             self.temperature,
@@ -117,7 +117,7 @@ impl Asr {
         let (log_tx, log_rx) = std::sync::mpsc::channel();
         let lm = self.lm.clone();
         let audio_tokenizer = self.audio_tokenizer.clone();
-        let mut state = moshi::asr::State::new(
+        let mut state = moshi_db::asr::State::new(
             1,
             self.asr_delay_in_tokens,
             self.temperature,
@@ -181,15 +181,15 @@ impl Asr {
                     )?;
                     for asr_msg in asr_msgs.into_iter() {
                         let msg = match asr_msg {
-                            moshi::asr::AsrMsg::Word { tokens, start_time, .. } => OutMsg::Word {
+                            moshi_db::asr::AsrMsg::Word { tokens, start_time, .. } => OutMsg::Word {
                                 text: text_tokenizer.decode_piece_ids(&tokens)?,
                                 start_time,
                             },
-                            moshi::asr::AsrMsg::Step { step_idx, prs } => {
+                            moshi_db::asr::AsrMsg::Step { step_idx, prs } => {
                                 let prs = prs.iter().map(|p| p[0]).collect::<Vec<_>>();
                                 OutMsg::Step { step_idx, prs, buffered_pcm: 0 }
                             }
-                            moshi::asr::AsrMsg::EndWord { stop_time, .. } => {
+                            moshi_db::asr::AsrMsg::EndWord { stop_time, .. } => {
                                 OutMsg::EndWord { stop_time }
                             }
                         };

@@ -85,6 +85,7 @@ def init(batch_size: int, config_override: dict) -> 'TTSService':
     config.log_folder.mkdir(parents=True, exist_ok=True)
 
     print("retrieving checkpoint")
+    print(config.hf_repo)
     checkpoint_info = loaders.CheckpointInfo.from_hf_repo(
         config.hf_repo, moshi_weights=config.moshi_weight, mimi_weights=config.mimi_weight,
         config_path=config.config_path, tokenizer=config.tokenizer)

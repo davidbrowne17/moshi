@@ -81,6 +81,7 @@ def main():
     args.out_folder.mkdir(parents=True, exist_ok=True)
 
     print("retrieving checkpoint")
+    print(args.hf_repo)
     checkpoint_info = CheckpointInfo.from_hf_repo(
         args.hf_repo, args.moshi_weight, args.mimi_weight, args.tokenizer, args.config)
 

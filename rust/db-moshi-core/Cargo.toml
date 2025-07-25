@@ -1,5 +1,5 @@
 [package]
-name = "db-moshi"
+name = "moshi-db"
 version.workspace = true
 edition.workspace = true
 description.workspace = true

@@ -80,7 +80,7 @@ pub async fn run(args: &crate::BenchmarkArgs, config: &Config) -> Result<()> {
     if args.mimi_only {
         let device = crate::standalone::device(args.cpu)?;
         let mimi_device = if config.use_cpu_for_mimi { &candle::Device::Cpu } else { &device };
-        let mut mimi_model = moshi::mimi::load(
+        let mut mimi_model = moshi_db::mimi::load(
             &config.mimi_model_file,
             Some(config.mimi_num_codebooks),
             mimi_device,

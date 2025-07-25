@@ -224,6 +224,7 @@ def main():
             tunnel_token = args.gradio_tunnel_token
 
     log("info", "retrieving checkpoint")
+    log("info", args.hf_repo)
     checkpoint_info = loaders.CheckpointInfo.from_hf_repo(
         args.hf_repo, args.moshi_weight, args.mimi_weight, args.tokenizer,
         lora_weights=args.lora_weight, config_path=args.config_path)

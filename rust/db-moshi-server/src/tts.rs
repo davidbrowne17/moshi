@@ -6,7 +6,7 @@ use anyhow::{Context, Result};
 use axum::extract::ws;
 use candle::{DType, Device, IndexOp, Tensor};
 use candle_nn::VarBuilder;
-use moshi::tts_streaming::Speaker;
+use moshi_db::tts_streaming::Speaker;
 
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 pub struct WordWithTimestamps {
@@ -16,12 +16,12 @@ pub struct WordWithTimestamps {
 }
 
 pub struct Model {
-    lm: moshi::lm::LmModel,
-    audio_tokenizer: moshi::mimi::Mimi,
+    lm: moshi_db::lm::LmModel,
+    audio_tokenizer: moshi_db::mimi::Mimi,
     text_tokenizer: std::sync::Arc<sentencepiece::SentencePieceProcessor>,
-    speaker_encoder: moshi::tts_streaming::SpeakerEncoder,
+    speaker_encoder: moshi_db::tts_streaming::SpeakerEncoder,
     ca_srcs: std::collections::HashMap<String, Tensor>,
-    tts_config: moshi::tts_streaming::Config,
+    tts_config: moshi_db::tts_streaming::Config,
     instance_name: String,
     voice_dir: std::path::PathBuf,
     log_dir: std::path::PathBuf,
@@ -250,24 +250,24 @@ impl Model {
         let model_config = &tts.model;
         let audio_codebooks = model_config.audio_codebooks;
         let audio_tokenizer =
-            moshi::mimi::load(&tts.audio_tokenizer_file, Some(audio_codebooks), dev)?;
+            moshi_db::mimi::load(&tts.audio_tokenizer_file, Some(audio_codebooks), dev)?;
         let speaker_tokenizer = if tts.speaker_tokenizer_file == tts.audio_tokenizer_file {
             audio_tokenizer.clone()
         } else if tts.speaker_tokenizer_file.is_empty() {
             let vb_lm = unsafe {
                 VarBuilder::from_mmaped_safetensors(&[&tts.lm_model_file], DType::F32, dev)?
             };
-            let cfg = moshi::mimi::Config::v0_1(None);
-            moshi::mimi::Mimi::new(
+            let cfg = moshi_db::mimi::Config::v0_1(None);
+            moshi_db::mimi::Mimi::new(
                 cfg,
                 vb_lm.pp("condition_provider.conditioners.speaker_wavs.compression_model"),
             )?
         } else {
-            moshi::mimi::load(&tts.speaker_tokenizer_file, None, dev)?
+            moshi_db::mimi::load(&tts.speaker_tokenizer_file, None, dev)?
         };
         let vb_lm =
             unsafe { VarBuilder::from_mmaped_safetensors(&[&tts.lm_model_file], dtype, dev)? };
-        let speaker_encoder = moshi::tts_streaming::SpeakerEncoder::new(
+        let speaker_encoder = moshi_db::tts_streaming::SpeakerEncoder::new(
             speaker_tokenizer,
             tts.generation.speaker_cond_dim,
             tts.generation.speaker_cond_n_speakers,
@@ -285,9 +285,9 @@ impl Model {
             let ca_src = ca_src.narrow(0, 0, 1)?.to_dtype(dtype)?;
             ca_srcs.insert(name.to_string(), ca_src);
         }
-        let lm = moshi::lm::LmModel::new(
+        let lm = moshi_db::lm::LmModel::new(
             model_config,
-            moshi::nn::MaybeQuantizedVarBuilder::Real(vb_lm),
+            moshi_db::nn::MaybeQuantizedVarBuilder::Real(vb_lm),
         )?;
         Ok(Self {
             lm,
@@ -348,9 +348,9 @@ impl Model {
             ca_src
         };
         let max_seq_len = query.max_seq_len.unwrap_or(2048);
-        let mut state = moshi::tts_streaming::State::new(
+        let mut state = moshi_db::tts_streaming::State::new(
             self.lm.clone(),
-            Some(moshi::transformer::CaSrc::Tokens(ca_src)),
+            Some(moshi_db::transformer::CaSrc::Tokens(ca_src)),
             max_seq_len,
             audio_lp,
             text_lp,
@@ -431,11 +431,11 @@ impl Model {
                             if step_past_last_token > extra_steps + text_audio_delay_in_tokens {
                                 break;
                             }
-                            moshi::tts_streaming::AllowedTokens::Pad
+                            moshi_db::tts_streaming::AllowedTokens::Pad
                         }
                         Some(word_tokens) => match word_tokens.get(token_idx) {
-                            None => moshi::tts_streaming::AllowedTokens::PadOrEpad,
-                            Some(id) => moshi::tts_streaming::AllowedTokens::Text(*id),
+                            None => moshi_db::tts_streaming::AllowedTokens::PadOrEpad,
+                            Some(id) => moshi_db::tts_streaming::AllowedTokens::Text(*id),
                         },
                     };
                     last_text_token =
@@ -631,7 +631,7 @@ impl Model {
         let text_eos_token = config.text_eos_token;
         let text_eop_token = config.text_eop_token;
         let text_pad_token = config.text_pad_token;
-        let mut prompt = moshi::tts_streaming::tokenize_prompt(
+        let mut prompt = moshi_db::tts_streaming::tokenize_prompt(
             &query.text,
             text_bos_token,
             text_eos_token,
@@ -679,9 +679,9 @@ impl Model {
             };
             let max_seq_len = query.max_seq_len.unwrap_or(2048);
             let config = config.clone();
-            let mut state = moshi::tts_streaming::State::new(
+            let mut state = moshi_db::tts_streaming::State::new(
                 self.lm.clone(),
-                Some(moshi::transformer::CaSrc::Tokens(ca_src)),
+                Some(moshi_db::transformer::CaSrc::Tokens(ca_src)),
                 max_seq_len,
                 audio_lp,
                 text_lp,
@@ -702,11 +702,11 @@ impl Model {
                         if step_past_last_token > 5 + text_audio_delay_in_tokens {
                             break;
                         }
-                        moshi::tts_streaming::AllowedTokens::Pad
+                        moshi_db::tts_streaming::AllowedTokens::Pad
                     }
                     Some(word_tokens) => match word_tokens.0.get(token_idx) {
-                        None => moshi::tts_streaming::AllowedTokens::PadOrEpad,
-                        Some(id) => moshi::tts_streaming::AllowedTokens::Text(*id),
+                        None => moshi_db::tts_streaming::AllowedTokens::PadOrEpad,
+                        Some(id) => moshi_db::tts_streaming::AllowedTokens::Text(*id),
                     },
                 };
                 last_text_token =
@@ -771,7 +771,7 @@ impl Model {
         let pcm = Tensor::cat(&all_pcm_chunks, 2)?;
         let pcm = pcm.i((0, 0))?.to_vec1::<f32>()?;
         let mut wav = vec![];
-        moshi::wav::write_pcm_as_wav(&mut wav, &pcm, 24_000)?;
+        moshi_db::wav::write_pcm_as_wav(&mut wav, &pcm, 24_000)?;
         Ok((wav, transcript))
     }
 }

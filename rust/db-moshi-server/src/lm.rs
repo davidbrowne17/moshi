@@ -11,7 +11,7 @@ use candle_transformers::generation::LogitsProcessor;
 use kaudio::ogg_opus;
 
 struct TextDecoder {
-    gen_config: moshi::lm_generate_multistream::Config,
+    gen_config: moshi_db::lm_generate_multistream::Config,
     text_tokenizer: std::sync::Arc<sentencepiece::SentencePieceProcessor>,
 }
 
@@ -45,9 +45,9 @@ impl TextDecoder {
 
 pub struct Lm {
     dev: Device,
-    gen_config: moshi::lm_generate_multistream::Config,
-    lm: moshi::lm::LmModel,
-    audio_tokenizer: moshi::mimi::Mimi,
+    gen_config: moshi_db::lm_generate_multistream::Config,
+    lm: moshi_db::lm::LmModel,
+    audio_tokenizer: moshi_db::mimi::Mimi,
     text_tokenizer: std::sync::Arc<sentencepiece::SentencePieceProcessor>,
     instance_name: String,
     log_dir: std::path::PathBuf,
@@ -68,14 +68,14 @@ impl Lm {
         let dtype = dev.bf16_default_to_f32();
         let model_config = &lm.model;
         let gen_config = lm.gen.clone();
-        let audio_tokenizer = moshi::mimi::load(&lm.audio_tokenizer_file, Some(8), dev)?;
+        let audio_tokenizer = moshi_db::mimi::load(&lm.audio_tokenizer_file, Some(8), dev)?;
         let text_tokenizer = sentencepiece::SentencePieceProcessor::open(&lm.text_tokenizer_file)
             .with_context(|| lm.text_tokenizer_file.clone())?;
         let vb_lm =
             unsafe { VarBuilder::from_mmaped_safetensors(&[&lm.lm_model_file], dtype, dev)? };
-        let lm = moshi::lm::LmModel::new(
+        let lm = moshi_db::lm::LmModel::new(
             model_config,
-            moshi::nn::MaybeQuantizedVarBuilder::Real(vb_lm),
+            moshi_db::nn::MaybeQuantizedVarBuilder::Real(vb_lm),
         )?;
         Ok(Self {
             audio_tokenizer,
@@ -141,7 +141,7 @@ impl Lm {
             }
         };
 
-        let mut state = moshi::lm_generate_multistream::State::new(
+        let mut state = moshi_db::lm_generate_multistream::State::new(
             self.lm.clone(),
             /* max_steps = */ 4096,
             audio_lp,

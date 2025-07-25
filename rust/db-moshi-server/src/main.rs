@@ -74,8 +74,8 @@ pub struct TtsConfig {
     pub audio_tokenizer_file: String,
     pub voices: std::collections::HashMap<String, String>,
     pub voice_dir: String,
-    pub model: moshi::lm::Config,
-    pub generation: moshi::tts_streaming::Config,
+    pub model: moshi_db::lm::Config,
+    pub generation: moshi_db::tts_streaming::Config,
 }
 
 #[derive(Debug, Clone, serde::Deserialize)]
@@ -83,7 +83,7 @@ pub struct AsrConfig {
     pub lm_model_file: String,
     pub text_tokenizer_file: String,
     pub audio_tokenizer_file: String,
-    pub model: moshi::lm::Config,
+    pub model: moshi_db::lm::Config,
     pub asr_delay_in_tokens: usize,
     #[serde(default)]
     pub log_frequency_s: Option<f64>,
@@ -109,8 +109,8 @@ pub struct LmConfig {
     pub lm_model_file: String,
     pub text_tokenizer_file: String,
     pub audio_tokenizer_file: String,
-    pub model: moshi::lm::Config,
-    pub gen: moshi::lm_generate_multistream::Config,
+    pub model: moshi_db::lm::Config,
+    pub gen: moshi_db::lm_generate_multistream::Config,
 }
 
 #[derive(Debug, Clone, serde::Deserialize)]

@@ -513,7 +513,7 @@ impl M {
 
         crate::utils::spawn("send_loop", async move {
             let mut wav_buffer = Vec::new();
-            moshi::wav::write_wav_header(&mut wav_buffer, 24_000, 0xFFFF_FFFFu32, 0xFFFF_FFFFu32)?;
+            moshi_db::wav::write_wav_header(&mut wav_buffer, 24_000, 0xFFFF_FFFFu32, 0xFFFF_FFFFu32)?;
             tx.send(Ok(Bytes::from(wav_buffer.clone()))).await?;
             while let Some(data) = out_rx.recv().await {
                 wav_buffer.clear();
@@ -524,7 +524,7 @@ impl M {
                     buf
                 };
 
-                moshi::wav::write_pcm_in_wav(&mut wav_buffer, &pcm)?;
+                moshi_db::wav::write_pcm_in_wav(&mut wav_buffer, &pcm)?;
                 tx.send(Ok(Bytes::from(wav_buffer.clone()))).await?;
             }
 
