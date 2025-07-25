@@ -1,35 +1,22 @@
-# ────────────────────────────────────────────────────────────────
-#  Rust CI  +  crates.io publish via OIDC (Trusted Publishing)
-# ────────────────────────────────────────────────────────────────
-#  • Runs "check", "clippy", "fmt", and "test" on every push to
-#    main or on PRs targeting main / refacto.
-#  • When a tag that looks like v*, e.g. v0.1.0, is pushed,
-#    it ALSO runs the "publish" job, which executes
-#         cargo publish --locked --no-verify
-#    from ./rust/.  Trusted Publishing means no API token is
-#    stored; crates.io grants a short‑lived token to the runner.
-# ────────────────────────────────────────────────────────────────
-
-name: Rust CI
+name: Rust CI and Workspace Publish
 
 on:
   push:
     branches: [ main ]
-    tags:     [ 'v*' ]          # ← triggers publish on version tags
+    tags:     [ 'v*' ]    # triggers publish
   pull_request:
     branches: [ main, refacto ]
 
-# OIDC requires id-token: write; CI jobs only need contents: read.
 permissions:
   contents: read
-  id-token: write
+  id-token: write  # required for trusted publishing
 
 jobs:
-# ─────────────────────────────
-# 1. static analysis & style
-# ─────────────────────────────
-  check:
-    name: Check
+  # ─────────────────────────────
+  # CI: check, clippy, fmt, test
+  # ─────────────────────────────
+  ci:
+    name: Static Analysis + Tests
     runs-on: ubuntu-latest
     defaults:
       run:
@@ -48,21 +35,6 @@ jobs:
       - name: cargo fmt
         run: cargo fmt --all -- --check
 
-# ─────────────────────────────
-# 2. unit / integration tests
-# ─────────────────────────────
-  test:
-    name: Test
-    runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: ./rust
-    steps:
-      - uses: actions/checkout@v4
-
-      - uses: dtolnay/rust-toolchain@stable
-
-      # only needed if the Rust code calls into Python; keep if useful
       - uses: actions/setup-python@v5
         with:
           python-version: '3.11'
@@ -70,24 +42,32 @@ jobs:
       - name: cargo test
         run: cargo test
 
-# ─────────────────────────────
-# 3. crates.io publish (only on tags)
-# ─────────────────────────────
+  # ─────────────────────────────
+  # Publish all workspace crates
+  # ─────────────────────────────
   publish:
-    name: Publish crate to crates.io
-    # Run only when we're building a tag that starts with "v"
+    name: Publish all crates to crates.io
     if: startsWith(github.ref, 'refs/tags/v')
     runs-on: ubuntu-latest
-    # Put publishing behind an “environment” so GitHub asks for
-    # explicit approval if you enable protection rules.
     environment: crates-io
-    defaults:
-      run:
-        working-directory: ./rust
     steps:
       - uses: actions/checkout@v4
 
       - uses: dtolnay/rust-toolchain@stable
 
-      - name: Publish with Cargo (Trusted Publishing)
-        run: cargo publish --locked --no-verify
+      - name: Publish all workspace crates
+        run: |
+          echo "Searching for publishable crates..."
+          for crate in db-moshi-core db-moshi-cli db-moshi-server db-moshi-backend db-mimi-pyo3; do
+            echo "Attempting to publish: $crate"
+            (
+              cd "$crate"
+              # dry-run to check if it should be published
+              if cargo publish --locked --dry-run > /dev/null 2>&1; then
+                echo "Publishing $crate..."
+                cargo publish --locked --no-verify
+              else
+                echo "Skipping $crate (likely already published or not publishable)"
+              fi
+            )
+          done
