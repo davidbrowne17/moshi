@@ -1,0 +1,93 @@
+# ────────────────────────────────────────────────────────────────
+#  Rust CI  +  crates.io publish via OIDC (Trusted Publishing)
+# ────────────────────────────────────────────────────────────────
+#  • Runs "check", "clippy", "fmt", and "test" on every push to
+#    main or on PRs targeting main / refacto.
+#  • When a tag that looks like v*, e.g. v0.1.0, is pushed,
+#    it ALSO runs the "publish" job, which executes
+#         cargo publish --locked --no-verify
+#    from ./rust/.  Trusted Publishing means no API token is
+#    stored; crates.io grants a short‑lived token to the runner.
+# ────────────────────────────────────────────────────────────────
+
+name: Rust CI
+
+on:
+  push:
+    branches: [ main ]
+    tags:     [ 'v*' ]          # ← triggers publish on version tags
+  pull_request:
+    branches: [ main, refacto ]
+
+# OIDC requires id-token: write; CI jobs only need contents: read.
+permissions:
+  contents: read
+  id-token: write
+
+jobs:
+# ─────────────────────────────
+# 1. static analysis & style
+# ─────────────────────────────
+  check:
+    name: Check
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: ./rust
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: dtolnay/rust-toolchain@stable
+
+      - name: cargo check
+        run: cargo check
+
+      - name: cargo clippy
+        run: cargo clippy -- -D warnings
+
+      - name: cargo fmt
+        run: cargo fmt --all -- --check
+
+# ─────────────────────────────
+# 2. unit / integration tests
+# ─────────────────────────────
+  test:
+    name: Test
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: ./rust
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: dtolnay/rust-toolchain@stable
+
+      # only needed if the Rust code calls into Python; keep if useful
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: cargo test
+        run: cargo test
+
+# ─────────────────────────────
+# 3. crates.io publish (only on tags)
+# ─────────────────────────────
+  publish:
+    name: Publish crate to crates.io
+    # Run only when we're building a tag that starts with "v"
+    if: startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-latest
+    # Put publishing behind an “environment” so GitHub asks for
+    # explicit approval if you enable protection rules.
+    environment: crates-io
+    defaults:
+      run:
+        working-directory: ./rust
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: dtolnay/rust-toolchain@stable
+
+      - name: Publish with Cargo (Trusted Publishing)
+        run: cargo publish --locked --no-verify
