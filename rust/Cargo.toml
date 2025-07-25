@@ -1,10 +1,10 @@
 [workspace]
 members = [
-    "mimi-pyo3",
-    "moshi-backend",
-    "moshi-cli",
-    "moshi-core",
-    "moshi-server",
+    "db-mimi-pyo3",
+    "db-moshi-backend",
+    "db-moshi-cli",
+    "db-moshi-core",
+    "db-moshi-server",
 ]
 resolver = "2"
 
