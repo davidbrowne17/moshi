@@ -1,5 +1,5 @@
 [package]
-name = "mimi-pyo3"
+name = "db-mimi-pyo3"
 version.workspace = true
 edition.workspace = true
 description.workspace = true
